@@ -1,0 +1,215 @@
+{
+  "name": "Radion Case Finalized Email",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "radion-case-finalized",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-node",
+      "name": "Case Finalized Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ],
+      "webhookId": "radion-case-finalized"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-email",
+              "leftValue": "={{ $json.to_email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-email-present",
+      "name": "Has Email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "to-email",
+              "name": "toEmail",
+              "type": "string",
+              "value": "={{ $json.to_email }}"
+            },
+            {
+              "id": "subject",
+              "name": "subject",
+              "type": "string",
+              "value": "={{ 'Your Radiology Result: ' + $json.disease }}"
+            },
+            {
+              "id": "text-body",
+              "name": "textBody",
+              "type": "string",
+              "value": "={{ 'Disease: ' + $json.disease + '\\n\\nExplanation:\\n' + ($json.patient_explanation?.text || '') + '\\n\\nLifestyle Recommendations:\\n- ' + (($json.lifestyle_recommendations || []).join('\\n- ')) + '\\n\\nPatient Token: ' + ($json.patient_token || '') }}"
+            },
+            {
+              "id": "html-body",
+              "name": "htmlBody",
+              "type": "string",
+              "value": "={{ '<h2>Radiology Result</h2><p><strong>Disease:</strong> ' + $json.disease + '</p><p><strong>Explanation:</strong><br>' + (($json.patient_explanation?.text || '').replace(/\\n/g, '<br>')) + '</p><p><strong>Lifestyle Recommendations:</strong></p><ul>' + (($json.lifestyle_recommendations || []).map(item => '<li>' + item + '</li>').join('')) + '</ul><p><strong>Patient Token:</strong> ' + ($json.patient_token || '') + '</p>' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare-email",
+      "name": "Prepare Email Content",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        740,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "hospital@example.com",
+        "toEmail": "={{ $json.toEmail }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.htmlBody }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "send-email",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        980,
+        220
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "replace-with-your-smtp-credential-id",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, sent: true, to: $json.toEmail, disease: $('Case Finalized Webhook').item.json.disease } }}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1220,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, sent: false, reason: 'Missing to_email in webhook payload', payload: $json } }}"
+      },
+      "id": "respond-missing-email",
+      "name": "Respond Missing Email",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        740,
+        420
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Case Finalized Webhook": {
+      "main": [
+        [
+          {
+            "node": "Has Email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Email?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email Content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Missing Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Email Content": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "id": "radion-case-finalized-email",
+  "tags": []
+}
